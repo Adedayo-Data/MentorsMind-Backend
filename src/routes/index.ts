@@ -3,6 +3,7 @@ import { ResponseUtil } from '../utils/response.utils';
 import authRoutes from './auth.routes';
 import usersRoutes from './users.routes';
 import adminRoutes from './admin.routes';
+import escrowRoutes from './escrow.routes';
 import { AdminService } from '../services/admin.service';
 
 const router = Router();
@@ -16,6 +17,7 @@ AdminService.initialize().catch(err => {
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/admin', adminRoutes);
+router.use('/escrow', escrowRoutes);
 
 /**
  * @swagger
@@ -44,6 +46,7 @@ router.get('/', (_req, res) => {
       bookings: '/api/v1/bookings',
       payments: '/api/v1/payments',
       wallets: '/api/v1/wallets',
+      escrow: '/api/v1/escrow',
     },
     documentation: '/api/docs',
   }, 'Welcome to MentorMinds API');
