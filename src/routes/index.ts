@@ -19,7 +19,20 @@ router.use('/users', usersRoutes);
 router.use('/', exportRoutes);
 router.use('/admin', adminRoutes);
 
-// API version info endpoint
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: API version info
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: API info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ */
 router.get('/', (_req, res) => {
   ResponseUtil.success(res, {
     version: '1.0.0',
@@ -38,7 +51,30 @@ router.get('/', (_req, res) => {
   }, 'Welcome to MentorMinds API');
 });
 
-// Health check endpoint
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Service health check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         uptime: { type: number, example: 3600 }
+ *                         timestamp: { type: string, format: date-time }
+ *                         environment: { type: string, example: production }
+ *                         version: { type: string, example: v1 }
+ */
 router.get('/health', (_req, res) => {
   ResponseUtil.success(res, {
     uptime: process.uptime(),
@@ -48,7 +84,34 @@ router.get('/health', (_req, res) => {
   }, 'Service is healthy');
 });
 
-// Readiness check endpoint
+/**
+ * @swagger
+ * /ready:
+ *   get:
+ *     summary: Service readiness check
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Service is ready
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         database: { type: boolean }
+ *                         stellar: { type: boolean }
+ *       503:
+ *         description: Service not ready
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get('/ready', async (_req, res) => {
   // Add checks for database, external services, etc.
   const checks = {
