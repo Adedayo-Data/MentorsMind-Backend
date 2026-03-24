@@ -2,22 +2,26 @@ import { Router } from 'express';
 import { ResponseUtil } from '../utils/response.utils';
 import authRoutes from './auth.routes';
 import usersRoutes from './users.routes';
+import exportRoutes from './export.routes';
 import adminRoutes from './admin.routes';
-import escrowRoutes from './escrow.routes';
+import bookingsRoutes from './bookings.routes';
+import timezoneRoutes from './timezone.routes';
 import { AdminService } from '../services/admin.service';
 
 const router = Router();
 
 // Initialize admin tables (async, don't block)
-AdminService.initialize().catch(err => {
+AdminService.initialize().catch((err) => {
   console.error('Failed to initialize admin tables:', err);
 });
 
 // Mount route modules
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
+router.use('/', exportRoutes);
 router.use('/admin', adminRoutes);
-router.use('/escrow', escrowRoutes);
+router.use('/bookings', bookingsRoutes);
+router.use('/timezones', timezoneRoutes);
 
 /**
  * @swagger
@@ -34,22 +38,25 @@ router.use('/escrow', escrowRoutes);
  *               $ref: '#/components/schemas/ApiResponse'
  */
 router.get('/', (_req, res) => {
-  ResponseUtil.success(res, {
-    version: '1.0.0',
-    name: 'MentorMinds Stellar API',
-    description: 'Backend API for MentorMinds platform',
-    endpoints: {
-      health: '/health',
-      auth: '/api/v1/auth',
-      users: '/api/v1/users',
-      mentors: '/api/v1/mentors',
-      bookings: '/api/v1/bookings',
-      payments: '/api/v1/payments',
-      wallets: '/api/v1/wallets',
-      escrow: '/api/v1/escrow',
+  ResponseUtil.success(
+    res,
+    {
+      version: '1.0.0',
+      name: 'MentorMinds Stellar API',
+      description: 'Backend API for MentorMinds platform',
+      endpoints: {
+        health: '/health',
+        auth: '/api/v1/auth',
+        users: '/api/v1/users',
+        mentors: '/api/v1/mentors',
+        bookings: '/api/v1/bookings',
+        payments: '/api/v1/payments',
+        wallets: '/api/v1/wallets',
+      },
+      documentation: '/api/docs',
     },
-    documentation: '/api/docs',
-  }, 'Welcome to MentorMinds API');
+    'Welcome to MentorMinds API',
+  );
 });
 
 /**
@@ -77,12 +84,16 @@ router.get('/', (_req, res) => {
  *                         version: { type: string, example: v1 }
  */
 router.get('/health', (_req, res) => {
-  ResponseUtil.success(res, {
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: process.env.API_VERSION || 'v1',
-  }, 'Service is healthy');
+  ResponseUtil.success(
+    res,
+    {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: process.env.API_VERSION || 'v1',
+    },
+    'Service is healthy',
+  );
 });
 
 /**
@@ -120,7 +131,7 @@ router.get('/ready', async (_req, res) => {
     stellar: true, // TODO: Add Stellar network check
   };
 
-  const isReady = Object.values(checks).every(check => check === true);
+  const isReady = Object.values(checks).every((check) => check === true);
 
   if (isReady) {
     ResponseUtil.success(res, checks, 'Service is ready');
