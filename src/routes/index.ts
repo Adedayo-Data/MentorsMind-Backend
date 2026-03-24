@@ -2,15 +2,17 @@ import { Router } from 'express';
 import { ResponseUtil } from '../utils/response.utils';
 import authRoutes from './auth.routes';
 import usersRoutes from './users.routes';
+import exportRoutes from './export.routes';
 
 const router = Router();
 
 // Mount route modules
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
+router.use('/', exportRoutes);
 
 // API version info endpoint
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   ResponseUtil.success(res, {
     version: '1.0.0',
     name: 'MentorMinds Stellar API',
@@ -29,7 +31,7 @@ router.get('/', (req, res) => {
 });
 
 // Health check endpoint
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   ResponseUtil.success(res, {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
@@ -39,7 +41,7 @@ router.get('/health', (req, res) => {
 });
 
 // Readiness check endpoint
-router.get('/ready', async (req, res) => {
+router.get('/ready', async (_req, res) => {
   // Add checks for database, external services, etc.
   const checks = {
     database: true, // TODO: Add actual database check
