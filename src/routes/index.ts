@@ -6,6 +6,7 @@ import exportRoutes from './export.routes';
 import adminRoutes from './admin.routes';
 import bookingsRoutes from './bookings.routes';
 import timezoneRoutes from './timezone.routes';
+import jobsRoutes from './jobs.routes';
 import { AdminService } from '../services/admin.service';
 import { BookingsService } from '../services/bookings.service';
 
@@ -17,7 +18,7 @@ AdminService.initialize().catch((err) => {
 });
 
 // Initialize bookings tables (async, don't block)
-BookingsService.initialize().catch(err => {
+BookingsService.initialize().catch((err) => {
   console.error('Failed to initialize bookings tables:', err);
 });
 
@@ -26,6 +27,7 @@ router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/', exportRoutes);
 router.use('/admin', adminRoutes);
+router.use('/admin/jobs', jobsRoutes);
 router.use('/bookings', bookingsRoutes);
 router.use('/timezones', timezoneRoutes);
 
