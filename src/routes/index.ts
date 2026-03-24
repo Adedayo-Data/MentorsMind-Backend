@@ -3,13 +3,21 @@ import { ResponseUtil } from '../utils/response.utils';
 import authRoutes from './auth.routes';
 import usersRoutes from './users.routes';
 import exportRoutes from './export.routes';
+import adminRoutes from './admin.routes';
+import { AdminService } from '../services/admin.service';
 
 const router = Router();
+
+// Initialize admin tables (async, don't block)
+AdminService.initialize().catch(err => {
+  console.error('Failed to initialize admin tables:', err);
+});
 
 // Mount route modules
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/', exportRoutes);
+router.use('/admin', adminRoutes);
 
 // API version info endpoint
 router.get('/', (_req, res) => {
