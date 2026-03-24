@@ -6,6 +6,7 @@ import exportRoutes from './export.routes';
 import adminRoutes from './admin.routes';
 import bookingsRoutes from './bookings.routes';
 import timezoneRoutes from './timezone.routes';
+import paymentsRoutes from './payments.routes';
 import { AdminService } from '../services/admin.service';
 import { BookingsService } from '../services/bookings.service';
 
@@ -28,6 +29,7 @@ router.use('/', exportRoutes);
 router.use('/admin', adminRoutes);
 router.use('/bookings', bookingsRoutes);
 router.use('/timezones', timezoneRoutes);
+router.use('/payments', paymentsRoutes);
 
 /**
  * @swagger
