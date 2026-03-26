@@ -141,7 +141,21 @@ export const NotificationService = {
    * Create a notification record in the database
    */
   async createNotification(input: NotificationInput): Promise<NotificationRecord | null> {
-    return await NotificationsModel.create(input);
+    const notification = await NotificationsModel.create(input);
+
+    if (notification) {
+      // Emit notification:new event to the user
+      SocketService.emitToUser(notification.user_id, 'notification:new', {
+        notificationId: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        createdAt: notification.created_at,
+      });
+    }
+
+    return notification;
   },
 
   /**

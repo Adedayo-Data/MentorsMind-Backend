@@ -42,8 +42,9 @@ const server = app.listen(PORT, () => {
   });
 });
 
-// Attach WebSocket server to the same HTTP server
-initWebSocketServer(server);
+// Attach Socket.IO server to the same HTTP server
+const io = createSocketServer(server);
+initializeSocketService(io);
 
 // Subscribe to Stellar Horizon SSE for real-time payment confirmations
 startStellarStream();

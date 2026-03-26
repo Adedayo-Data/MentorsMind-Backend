@@ -4,6 +4,7 @@ import { UsersService } from './users.service';
 import { stellarService } from './stellar.service';
 import { createError } from '../middleware/errorHandler';
 import { calculateEndTime, calculateRefundEligibility } from '../utils/booking-conflicts.utils';
+import { SocketService } from './socket.service';
 import pool from '../config/database';
 
 export interface CreateBookingData {
@@ -169,6 +170,18 @@ export const BookingsService = {
       throw createError('Failed to confirm booking', 500);
     }
 
+    // Emit session:updated event to both mentor and mentee
+    SocketService.emitToUser(booking.mentor_id, 'session:updated', {
+      bookingId,
+      status: 'confirmed',
+      updatedAt: updated.updated_at,
+    });
+    SocketService.emitToUser(booking.mentee_id, 'session:updated', {
+      bookingId,
+      status: 'confirmed',
+      updatedAt: updated.updated_at,
+    });
+
     return updated;
   },
 
@@ -195,6 +208,18 @@ export const BookingsService = {
     if (!updated) {
       throw createError('Failed to complete booking', 500);
     }
+
+    // Emit session:updated event to both mentor and mentee
+    SocketService.emitToUser(booking.mentor_id, 'session:updated', {
+      bookingId,
+      status: 'completed',
+      updatedAt: updated.updated_at,
+    });
+    SocketService.emitToUser(booking.mentee_id, 'session:updated', {
+      bookingId,
+      status: 'completed',
+      updatedAt: updated.updated_at,
+    });
 
     return updated;
   },
@@ -224,6 +249,20 @@ export const BookingsService = {
     }
 
     // TODO: Process refund via Stellar if eligible
+
+    // Emit session:updated event to both mentor and mentee
+    SocketService.emitToUser(booking.mentor_id, 'session:updated', {
+      bookingId,
+      status: 'cancelled',
+      cancellationReason: reason || 'No reason provided',
+      updatedAt: updated.updated_at,
+    });
+    SocketService.emitToUser(booking.mentee_id, 'session:updated', {
+      bookingId,
+      status: 'cancelled',
+      cancellationReason: reason || 'No reason provided',
+      updatedAt: updated.updated_at,
+    });
 
     return updated;
   },
@@ -263,6 +302,22 @@ export const BookingsService = {
     if (!updated) {
       throw createError('Failed to reschedule booking', 500);
     }
+
+    // Emit session:updated event to both mentor and mentee
+    SocketService.emitToUser(booking.mentor_id, 'session:updated', {
+      bookingId,
+      status: 'rescheduled',
+      newScheduledAt,
+      reason: reason || 'No reason provided',
+      updatedAt: updated.updated_at,
+    });
+    SocketService.emitToUser(booking.mentee_id, 'session:updated', {
+      bookingId,
+      status: 'rescheduled',
+      newScheduledAt,
+      reason: reason || 'No reason provided',
+      updatedAt: updated.updated_at,
+    });
 
     return updated;
   },
