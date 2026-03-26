@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { env } from './env';
+=======
+import { env } from "./env";
+>>>>>>> 65c470c (fix(testing): stabilize integration setup and unit test execution)
 
 /**
  * Monitoring and Metrics Configuration
@@ -40,13 +44,20 @@ export interface MonitoringConfig {
  */
 export const monitoringConfig: MonitoringConfig = {
   prometheus: {
+<<<<<<< HEAD
     enabled: env.NODE_ENV === 'development' || env.PROMETHEUS_ENABLED === 'true',
     port: parseInt(env.PROMETHEUS_PORT || '9090', 10),
     endpoint: env.PROMETHEUS_ENDPOINT || '/metrics',
+=======
+    enabled:
+      env.NODE_ENV === "development" || env.PROMETHEUS_ENABLED === "true",
+    port: parseInt(env.PROMETHEUS_PORT, 10),
+    endpoint: env.PROMETHEUS_ENDPOINT,
+>>>>>>> 65c470c (fix(testing): stabilize integration setup and unit test execution)
   },
   health: {
-    checkIntervalMs: parseInt(env.HEALTH_CHECK_INTERVAL || '30000', 10), // 30s
-    timeoutMs: parseInt(env.HEALTH_CHECK_TIMEOUT || '5000', 10), // 5s
+    checkIntervalMs: parseInt(env.HEALTH_CHECK_INTERVAL, 10), // 30s
+    timeoutMs: parseInt(env.HEALTH_CHECK_TIMEOUT, 10), // 5s
   },
   metrics: {
     trackRequests: true,
@@ -55,21 +66,33 @@ export const monitoringConfig: MonitoringConfig = {
     trackCache: true,
     trackStellar: true,
     labels: {
+<<<<<<< HEAD
       app: 'mentorminds',
+=======
+      app: "mentorminds",
+>>>>>>> 65c470c (fix(testing): stabilize integration setup and unit test execution)
       version: env.API_VERSION,
       environment: env.NODE_ENV,
     },
   },
   logging: {
     structuredHealth: true,
+<<<<<<< HEAD
     logHealthEvents: env.NODE_ENV === 'development',
+=======
+    logHealthEvents: env.NODE_ENV === "development",
+>>>>>>> 65c470c (fix(testing): stabilize integration setup and unit test execution)
   },
 };
 
 // Validate critical config
-if (monitoringConfig.prometheus.enabled && isNaN(monitoringConfig.prometheus.port)) {
-  throw new Error('PROMETHEUS_PORT must be a valid number when Prometheus is enabled');
+if (
+  monitoringConfig.prometheus.enabled &&
+  isNaN(monitoringConfig.prometheus.port)
+) {
+  throw new Error(
+    "PROMETHEUS_PORT must be a valid number when Prometheus is enabled",
+  );
 }
 
 export default monitoringConfig;
-
