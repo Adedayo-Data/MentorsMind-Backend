@@ -11,12 +11,14 @@ import {
   startScheduler,
   stopScheduler,
 } from './workers';
-import { startStellarStream, stopStellarStream } from './services/stellar-stream.service';
+import { initializeEmailTemplates } from './services/template-initializer.service';
 
-// Initialize database tables
-initializeModels().catch((err) => {
-  console.error('Failed to initialize models:', err);
-});
+// Initialize database tables, then seed email templates
+initializeModels()
+  .then(() => initializeEmailTemplates())
+  .catch((err) => {
+    console.error('Failed to initialize models:', err);
+  });
 
 // Start background job workers and scheduler
 startScheduler().catch((err) => {
