@@ -1,3 +1,11 @@
+import { NotificationsModel, NotificationInput, NotificationType, NotificationChannel, NotificationPriority } from '../models/notifications.model';
+import { UsersService } from './users.service';
+import { NotificationDeliveryTrackingModel, DeliveryStatus } from '../models/notification-delivery-tracking.model';
+import { NotificationAnalyticsModel } from '../models/notification-analytics.model';
+import { enqueueEmail } from '../queues/email.queue';
+import { SocketService } from './socket.service';
+import { PushService } from './push.service';
+import { logger } from '../utils/logger';
 import {
   NotificationsModel,
   NotificationInput,
@@ -393,8 +401,24 @@ The MentorMinds Team
    * Get user notification preferences
    */
   async getUserPreferences(userId: string) {
-    const preferences = await NotificationPreferencesModel.getByUserId(userId);
-    return preferences || NotificationPreferencesModel.getDefaultPreferences();
+    const user = await UsersService.findById(userId);
+    return user?.notification_preferences || this.getDefaultPreferences();
+  },
+
+  /**
+   * Get default preferences
+   */
+  getDefaultPreferences(): Record<string, Record<string, boolean>> {
+    return {
+      [NotificationType.BOOKING_CONFIRMED]: { email: true, push: true, in_app: true },
+      [NotificationType.PAYMENT_PROCESSED]: { email: true, push: true, in_app: true },
+      [NotificationType.SESSION_REMINDER]: { email: true, push: true, in_app: true },
+      [NotificationType.DISPUTE_CREATED]: { email: true, push: true, in_app: true },
+      [NotificationType.SYSTEM_ALERT]: { email: true, push: true, in_app: true },
+      [NotificationType.MEETING_CONFIRMED]: { email: true, push: true, in_app: true },
+      [NotificationType.MESSAGE_RECEIVED]: { email: true, push: true, in_app: true },
+      [NotificationType.SESSION_CANCELLED]: { email: true, push: true, in_app: true },
+    };
   },
 
   /**
@@ -402,11 +426,23 @@ The MentorMinds Team
    */
   filterChannelsByPreferences(
     requestedChannels: NotificationChannel[],
+    preferences: Record<string, Record<string, boolean>>,
+    notificationType: string
     preferences: any,
     notificationType: string,
   ): NotificationChannel[] {
     const allowedChannels: NotificationChannel[] = [];
+    const typePrefs = preferences[notificationType];
 
+    if (!typePrefs) {
+      // If no specific type preferences, allow all requested channels
+      return requestedChannels;
+    }
+
+    for (const channel of requestedChannels) {
+      // Check channel preference for this type
+      if (typePrefs[channel] !== false) {
+        allowedChannels.push(channel);
     for (const channel of requestedChannels) {
       // Check global channel preferences
       if (channel === NotificationChannel.EMAIL && !preferences.email_enabled) {
@@ -430,8 +466,6 @@ The MentorMinds Team
           continue;
         }
       }
-
-      allowedChannels.push(channel);
     }
 
     return allowedChannels;
