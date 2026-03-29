@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { AuthController } from '../controllers/auth.controller';
+import { SessionsController } from '../controllers/sessions.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { asyncHandler } from '../utils/asyncHandler.utils';
 
 const router = Router();
 
@@ -24,5 +26,10 @@ router.post('/reset-password', authLimiter, AuthController.resetPassword);
 // Protected routes (no strict rate limiting required beyond global)
 router.post('/logout', authenticate, AuthController.logout);
 router.get('/me', authenticate, AuthController.getMe);
+
+// Session management routes
+router.get('/sessions', authenticate, asyncHandler(SessionsController.listSessions));
+router.delete('/sessions', authenticate, asyncHandler(SessionsController.revokeAllSessions));
+router.delete('/sessions/:id', authenticate, asyncHandler(SessionsController.revokeSession));
 
 export default router;

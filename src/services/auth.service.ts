@@ -73,7 +73,7 @@ export const AuthService = {
     /**
      * Login an existing user
      */
-    async login(input: LoginInput): Promise<{ tokens: AuthTokens; userId: string; role: string }> {
+    async login(input: LoginInput, ipAddress?: string | null, userAgent?: string | null): Promise<{ tokens: AuthTokens; userId: string; role: string }> {
         const { email, password } = input;
 
         const query = `
@@ -95,6 +95,17 @@ export const AuthService = {
         }
 
         const tokens = await this.generateTokens(user.id, user.role);
+
+        // Create a tracked session for device management
+        const { SessionManagerService } = await import('./sessionManager.service');
+        await SessionManagerService.createSession({
+            userId: user.id,
+            refreshToken: tokens.refreshToken,
+            ipAddress: ipAddress ?? null,
+            userAgent: userAgent ?? null,
+            userEmail: email,
+        }).catch(() => { /* non-fatal */ });
+
         return { tokens, userId: user.id, role: user.role };
     },
 
@@ -124,9 +135,15 @@ export const AuthService = {
     /**
      * Logout user by clearing their refresh token
      */
-    async logout(userId: string): Promise<void> {
+    async logout(userId: string, refreshToken?: string): Promise<void> {
         const query = `UPDATE users SET refresh_token = NULL WHERE id = $1`;
         await pool.query(query, [userId]);
+
+        // Revoke the session associated with this refresh token
+        if (refreshToken) {
+            const { SessionManagerService } = await import('./sessionManager.service');
+            await SessionManagerService.revokeSessionByToken(refreshToken).catch(() => { /* non-fatal */ });
+        }
     },
 
     /**

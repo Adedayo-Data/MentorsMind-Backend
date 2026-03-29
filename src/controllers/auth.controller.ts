@@ -42,7 +42,7 @@ export const AuthController = {
     async login(req: Request, res: Response) {
         try {
             const validatedData = loginSchema.parse(req).body;
-            const result = await AuthService.login(validatedData);
+            const result = await AuthService.login(validatedData, extractIpAddress(req), req.headers['user-agent'] || null);
             
             // Log successful login
             await AuditLogService.log({
@@ -214,7 +214,7 @@ export const AuthController = {
   async login(req: Request, res: Response) {
     try {
       const validatedData = loginSchema.parse(req).body;
-      const result = await AuthService.login(validatedData);
+      const result = await AuthService.login(validatedData, req.ip ?? null, req.headers['user-agent'] ?? null);
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
       if (error instanceof ZodError) {
