@@ -78,7 +78,7 @@ export const idempotency = async (
         return;
       } else {
         // Valid cache hit — replay stored response
-        logger.info({ idempotencyKey, endpoint }, "Idempotency cache hit");
+        logger.info("Idempotency cache hit", { idempotencyKey, endpoint });
         res.setHeader("X-Idempotency-Replayed", "true");
         res
           .status((record.response_body as any).__status ?? 200)
@@ -105,10 +105,10 @@ export const idempotency = async (
             ],
           )
           .catch((err) =>
-            logger.warn(
-              { err, idempotencyKey },
-              "Failed to persist idempotency key",
-            ),
+            logger.warn("Failed to persist idempotency key", {
+              err,
+              idempotencyKey,
+            }),
           );
       }
       return originalJson(body);
@@ -116,7 +116,7 @@ export const idempotency = async (
 
     next();
   } catch (err) {
-    logger.warn({ err }, "Idempotency middleware error — failing open");
+    logger.warn("Idempotency middleware error — failing open", { err });
     next();
   }
 };
