@@ -13,6 +13,7 @@ import {
   listVerificationsSchema,
 } from "../validators/schemas/verification.schemas";
 import { ConsentController } from "../controllers/consent.controller";
+import { JwksController } from "../controllers/jwks.controller";
 
 const router = Router();
 
@@ -186,6 +187,26 @@ router.put("/users/:id/unsuspend", asyncHandler(AdminController.unsuspendUser));
  *         description: User not found
  */
 router.post("/users/:id/unlock", asyncHandler(AdminController.unlockUser));
+
+/**
+ * @swagger
+ * /admin/auth/rotate-keys:
+ *   post:
+ *     summary: Rotate JWT signing key pair (zero-downtime)
+ *     description: >
+ *       Generates a new RSA-256 key pair. The current key is demoted to
+ *       "previous" and remains valid for 24 hours so existing tokens keep
+ *       working. After 24 hours the previous key is rejected.
+ *     tags: [Admin, Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Keys rotated — returns new and previous kid values
+ *       403:
+ *         description: Admin role required
+ */
+router.post("/auth/rotate-keys", asyncHandler(JwksController.rotateKeys));
 
 /**
  * @swagger

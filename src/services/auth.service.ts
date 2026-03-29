@@ -200,12 +200,27 @@ export const AuthService = {
     },
 
     /**
-     * Generate access and refresh tokens, and save refresh token to DB
+     * Generate access and refresh tokens, and save refresh token to DB.
+     * Access tokens are signed with RSA-256 (asymmetric) via JwksService.
+     * Refresh tokens remain HMAC-256 (opaque rotation tokens, not third-party verified).
      */
     async generateTokens(userId: string, role: string): Promise<AuthTokens> {
-        const accessToken = jwt.sign({ sub: userId, role }, JWT_SECRET, {
-            expiresIn: ACCESS_TOKEN_EXPIRED_IN,
-        });
+        const { JwksService } = await import('./jwks.service');
+        const currentKey = await JwksService.getCurrentKey();
+
+        let accessToken: string;
+        if (currentKey) {
+            accessToken = jwt.sign({ sub: userId, role }, currentKey.privateKeyPem, {
+                algorithm: 'RS256',
+                expiresIn: ACCESS_TOKEN_EXPIRED_IN,
+                keyid: currentKey.kid,
+            });
+        } else {
+            // Fallback to HMAC during startup before keys are initialised
+            accessToken = jwt.sign({ sub: userId, role }, JWT_SECRET, {
+                expiresIn: ACCESS_TOKEN_EXPIRED_IN,
+            });
+        }
 
         const refreshToken = jwt.sign({ sub: userId, role }, JWT_REFRESH_SECRET, {
             expiresIn: REFRESH_TOKEN_EXPIRED_IN,
