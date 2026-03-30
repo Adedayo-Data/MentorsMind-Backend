@@ -11,6 +11,7 @@ import { SocketService } from "./socket.service";
 import pool from "../config/database";
 import { CalendarService } from "./calendar.service";
 import { SorobanEscrowService } from './sorobanEscrow.service';
+import videoSessionService from "./videoSession.service";
 
 export interface CreateBookingData {
   menteeId: string;
@@ -266,7 +267,7 @@ export const BookingsService = {
     }
 
     const updated = await BookingModel.update(bookingId, { status: 'confirmed' });
-    
+
     if (!updated) {
       throw createError("Failed to confirm booking", 500);
     }
@@ -302,6 +303,17 @@ export const BookingsService = {
     );
 
     return updated;
+
+    const room = await videoSessionService.createRoom(booking);
+
+    const mentorToken = await videoSessionService.generateToken(
+      room.name,
+      "mentor"
+    );
+
+    const learnerToken = await videoSessionService.generateToken(
+      room.name,
+      "learner"
   },
 
   async completeBooking(
@@ -344,7 +356,7 @@ export const BookingsService = {
     }
 
     const updated = await BookingModel.update(bookingId, { status: 'completed' });
-    
+
     if (!updated) {
       throw createError("Failed to complete booking", 500);
     }
