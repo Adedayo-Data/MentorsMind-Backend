@@ -3,21 +3,10 @@ import { DisputeStateMachine } from "./dispute-state-machine.service";
 import { AuditLogModel } from "../models/audit-log.model";
 import { SorobanEscrowService } from "./sorobanEscrow.service";
 import { DatabaseService } from "./database.service";
+import { NotificationService } from "./notification.service";
+import { NotificationType, NotificationChannel, NotificationPriority } from "../models/notifications.model";
 import pool from "../config/database";
 import { logger } from "../utils/logger";
-
-// Placeholder for Notification System integration (Issue #B15)
-export const NotificationService = {
-  async notifyDisputeUpdate(
-    userId: string,
-    disputeId: string,
-    event: string,
-  ): Promise<void> {
-    logger.info(
-      `[NotificationService] Sending email to ${userId} regarding dispute ${disputeId}: ${event}`,
-    );
-  },
-};
 
 export class DisputeService {
   /**
@@ -46,11 +35,41 @@ export class DisputeService {
       user_agent: null,
     });
 
-    await NotificationService.notifyDisputeUpdate(
-      reporterId,
-      dispute.id,
-      "Dispute Opened",
+    // Notify reporter and the other party (mentor or mentee)
+    const { rows: bookingRows } = await pool.query<{
+      mentor_id: string;
+      mentee_id: string;
+    }>(
+      `SELECT mentor_id, mentee_id FROM bookings WHERE id = $1 LIMIT 1`,
+      [transactionId],
     );
+    const booking = bookingRows[0];
+    const otherPartyId =
+      booking &&
+      (booking.mentor_id === reporterId ? booking.mentee_id : booking.mentor_id);
+
+    const openedNotifications = [
+      NotificationService.sendNotification({
+        userId: reporterId,
+        type: NotificationType.DISPUTE_CREATED,
+        channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        priority: NotificationPriority.HIGH,
+        data: { disputeId: dispute.id, event: "dispute_opened" },
+      }),
+    ];
+    if (otherPartyId) {
+      openedNotifications.push(
+        NotificationService.sendNotification({
+          userId: otherPartyId,
+          type: NotificationType.DISPUTE_CREATED,
+          channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+          priority: NotificationPriority.HIGH,
+          data: { disputeId: dispute.id, event: "dispute_opened" },
+        }),
+      );
+    }
+    await Promise.all(openedNotifications);
+
     return dispute;
   }
 
@@ -113,11 +132,42 @@ export class DisputeService {
           user_agent: null,
         });
 
-        await NotificationService.notifyDisputeUpdate(
-          dispute.reporter_id,
-          dispute.id,
-          "Dispute auto-escalated to admin review",
+        // Notify reporter and the other party about escalation
+        const { rows: escalateBookingRows } = await pool.query<{
+          mentor_id: string;
+          mentee_id: string;
+        }>(
+          `SELECT mentor_id, mentee_id FROM bookings WHERE id = $1 LIMIT 1`,
+          [dispute.transaction_id],
         );
+        const escalateBooking = escalateBookingRows[0];
+        const escalateOtherPartyId =
+          escalateBooking &&
+          (escalateBooking.mentor_id === dispute.reporter_id
+            ? escalateBooking.mentee_id
+            : escalateBooking.mentor_id);
+
+        const escalateNotifications = [
+          NotificationService.sendNotification({
+            userId: dispute.reporter_id,
+            type: NotificationType.DISPUTE_CREATED,
+            channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+            priority: NotificationPriority.HIGH,
+            data: { disputeId: dispute.id, event: "dispute_escalated" },
+          }),
+        ];
+        if (escalateOtherPartyId) {
+          escalateNotifications.push(
+            NotificationService.sendNotification({
+              userId: escalateOtherPartyId,
+              type: NotificationType.DISPUTE_CREATED,
+              channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+              priority: NotificationPriority.HIGH,
+              data: { disputeId: dispute.id, event: "dispute_escalated" },
+            }),
+          );
+        }
+        await Promise.all(escalateNotifications);
         escalatedCount++;
       }
     }
@@ -145,8 +195,10 @@ export class DisputeService {
     const { rows } = await pool.query<{
       escrow_id: string | null;
       escrow_contract_address: string | null;
+      mentor_id: string;
+      mentee_id: string;
     }>(
-      `SELECT escrow_id, escrow_contract_address FROM bookings WHERE id = $1 LIMIT 1`,
+      `SELECT escrow_id, escrow_contract_address, mentor_id, mentee_id FROM bookings WHERE id = $1 LIMIT 1`,
       [dispute.transaction_id],
     );
     const booking = rows[0];
@@ -197,11 +249,28 @@ export class DisputeService {
       user_agent: null,
     });
 
-    await NotificationService.notifyDisputeUpdate(
-      dispute.reporter_id,
-      disputeId,
-      `Dispute resolved: ${resolutionType}`,
-    );
+    await NotificationService.sendNotification({
+      userId: dispute.reporter_id,
+      type: NotificationType.SYSTEM_ALERT,
+      channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+      priority: NotificationPriority.HIGH,
+      data: { disputeId, event: "dispute_resolved", resolutionType },
+    });
+
+    // Notify the other party (mentor or mentee)
+    const resolveOtherPartyId =
+      booking.mentor_id === dispute.reporter_id
+        ? booking.mentee_id
+        : booking.mentor_id;
+    if (resolveOtherPartyId) {
+      await NotificationService.sendNotification({
+        userId: resolveOtherPartyId,
+        type: NotificationType.SYSTEM_ALERT,
+        channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        priority: NotificationPriority.HIGH,
+        data: { disputeId, event: "dispute_resolved", resolutionType },
+      });
+    }
 
     return updated;
   }
