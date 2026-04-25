@@ -1,16 +1,6 @@
-import pool from '../config/database';
+import pool from "../config/database";
+import { PaginationUtil } from "../utils/pagination.utils";
 
-export interface Session {
-  id: string;
-  mentor_id: string;
-  learner_id: string;
-  start_time: Date;
-  end_time: Date;
-  status: 'scheduled' | 'completed' | 'cancelled';
-  created_at: Date;
-}
-
-export const SessionModel = {
 export interface SessionRecord {
   id: string;
   mentor_id: string;
@@ -19,7 +9,7 @@ export interface SessionRecord {
   description: string | null;
   scheduled_at: Date;
   duration_minutes: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: "pending" | "confirmed" | "cancelled" | "completed";
   meeting_link: string | null;
   meeting_url: string | null;
   meeting_provider: string | null;
@@ -58,27 +48,6 @@ export const SessionModel = {
     const query = `
       CREATE TABLE IF NOT EXISTS sessions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        mentor_id UUID NOT NULL,
-        learner_id UUID NOT NULL,
-        start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-        end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-    await pool.query(query);
-  },
-
-  async findByUserId(userId: string): Promise<Session[]> {
-    const query = `
-      SELECT * FROM sessions
-      WHERE mentor_id = $1 OR learner_id = $1
-      ORDER BY start_time DESC;
-    `;
-    const { rows } = await pool.query<Session>(query, [userId]);
-    return rows;
-  },
-};
         mentor_id UUID NOT NULL REFERENCES users(id),
         mentee_id UUID NOT NULL REFERENCES users(id),
         title VARCHAR(255) NOT NULL,
@@ -105,7 +74,6 @@ export const SessionModel = {
       CREATE INDEX IF NOT EXISTS idx_sessions_meeting_expires_at ON sessions(meeting_expires_at) WHERE meeting_expires_at IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_sessions_needs_manual_intervention ON sessions(needs_manual_intervention) WHERE needs_manual_intervention = TRUE;
     `;
-    
     await pool.query(query);
   },
 
@@ -118,7 +86,7 @@ export const SessionModel = {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query, [
       payload.mentorId,
       payload.menteeId,
@@ -135,23 +103,53 @@ export const SessionModel = {
    * Find session by ID
    */
   async findById(id: string): Promise<SessionRecord | null> {
-    const query = 'SELECT * FROM sessions WHERE id = $1';
+    const query = "SELECT * FROM sessions WHERE id = $1";
     const { rows } = await pool.query<SessionRecord>(query, [id]);
     return rows[0] ?? null;
   },
 
   /**
-   * Find sessions by user ID (either as mentor or mentee)
+   * Find sessions by user ID (either as mentor or mentee) with cursor pagination
    */
-  async findByUserId(userId: string): Promise<SessionRecord[]> {
-    const query = `
-      SELECT * FROM sessions
-      WHERE mentor_id = $1 OR mentee_id = $1
-      ORDER BY scheduled_at DESC
-    `;
-    
-    const { rows } = await pool.query<SessionRecord>(query, [userId]);
-    return rows;
+  async findByUserIdPaginated(userId: string, filters: { cursor?: string; limit?: number }): Promise<{ sessions: SessionRecord[]; next_cursor: string | null; has_more: boolean; total: number }> {
+    const limit = filters.limit ?? 20;
+
+    const conditions: string[] = ['(mentor_id = $1 OR mentee_id = $1)'];
+    const params: unknown[] = [userId];
+    let idx = 2;
+
+    if (filters.cursor) {
+      const decoded = PaginationUtil.decodeCursor(filters.cursor);
+      if (decoded) {
+        conditions.push(`(scheduled_at, id) < ($${idx}, $${idx + 1})`);
+        params.push(decoded.created_at, decoded.id);
+        idx += 2;
+      }
+    }
+
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      pool.query<SessionRecord>(
+        `SELECT * FROM sessions
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY scheduled_at DESC, id DESC
+         LIMIT $${idx}`,
+        [...params, limit + 1],
+      ),
+      pool.query(`SELECT COUNT(*) FROM sessions WHERE mentor_id = $1 OR mentee_id = $1`, [userId]),
+    ]);
+
+    const has_more = rows.length > limit;
+    const data = has_more ? rows.slice(0, limit) : rows;
+
+    const lastItem = data[data.length - 1];
+    const next_cursor = has_more && lastItem ? PaginationUtil.encodeCursor({ id: lastItem.id, created_at: lastItem.scheduled_at.toISOString() }) : null;
+
+    return {
+      sessions: data,
+      next_cursor,
+      has_more,
+      total: parseInt(countRows[0].count, 10),
+    };
   },
 
   /**
@@ -165,7 +163,7 @@ export const SessionModel = {
         AND status IN ('pending', 'confirmed')
       ORDER BY scheduled_at ASC
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query, [userId]);
     return rows;
   },
@@ -173,14 +171,17 @@ export const SessionModel = {
   /**
    * Update session status
    */
-  async updateStatus(id: string, status: string): Promise<SessionRecord | null> {
+  async updateStatus(
+    id: string,
+    status: string,
+  ): Promise<SessionRecord | null> {
     const query = `
       UPDATE sessions
       SET status = $1, updated_at = NOW()
       WHERE id = $2
       RETURNING *
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query, [status, id]);
     return rows[0] ?? null;
   },
@@ -188,10 +189,13 @@ export const SessionModel = {
   /**
    * Update meeting URL and related fields
    */
-  async updateMeetingUrl(id: string, payload: UpdateMeetingUrlPayload): Promise<SessionRecord | null> {
+  async updateMeetingUrl(
+    id: string,
+    payload: UpdateMeetingUrlPayload,
+  ): Promise<SessionRecord | null> {
     const query = `
       UPDATE sessions
-      SET 
+      SET
         meeting_url = $1,
         meeting_provider = $2,
         meeting_room_id = $3,
@@ -200,7 +204,7 @@ export const SessionModel = {
       WHERE id = $5
       RETURNING *
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query, [
       payload.meetingUrl,
       payload.meetingProvider,
@@ -218,13 +222,13 @@ export const SessionModel = {
   async markForManualIntervention(id: string): Promise<SessionRecord | null> {
     const query = `
       UPDATE sessions
-      SET 
+      SET
         needs_manual_intervention = TRUE,
         updated_at = NOW()
       WHERE id = $1
       RETURNING *
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query, [id]);
     return rows[0] ?? null;
   },
@@ -238,7 +242,7 @@ export const SessionModel = {
       WHERE needs_manual_intervention = TRUE
       ORDER BY created_at DESC
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query);
     return rows;
   },
@@ -254,7 +258,7 @@ export const SessionModel = {
         AND status IN ('confirmed', 'completed')
       ORDER BY meeting_expires_at ASC
     `;
-    
+
     const { rows } = await pool.query<SessionRecord>(query);
     return rows;
   },
@@ -265,13 +269,13 @@ export const SessionModel = {
   async clearManualIntervention(id: string): Promise<boolean> {
     const query = `
       UPDATE sessions
-      SET 
+      SET
         needs_manual_intervention = FALSE,
         updated_at = NOW()
       WHERE id = $1
       RETURNING id
     `;
-    
+
     const { rowCount } = await pool.query(query, [id]);
     return (rowCount ?? 0) > 0;
   },
@@ -280,7 +284,7 @@ export const SessionModel = {
    * Delete a session
    */
   async delete(id: string): Promise<boolean> {
-    const query = 'DELETE FROM sessions WHERE id = $1 RETURNING id';
+    const query = "DELETE FROM sessions WHERE id = $1 RETURNING id";
     const { rowCount } = await pool.query(query, [id]);
     return (rowCount ?? 0) > 0;
   },
